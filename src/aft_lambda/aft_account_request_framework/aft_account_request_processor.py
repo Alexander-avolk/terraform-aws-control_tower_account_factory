@@ -58,10 +58,14 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> None:
             )
             if sqs_message is not None:
 
-                aft_metrics = AFTMetrics()
-
                 sqs_body = json.loads(sqs_message["Body"])
                 ct_request_is_valid = True
+
+                depends_on_accounts = sqs_body["depends_on_accounts"]
+                if not account_request.all_required_accounts_are_provisioned(depends_on_accounts):
+                    logger.info("Not all required accounts are provisioned")
+                    return None
+
                 if sqs_body["operation"] == "ADD":
                     ct_request_is_valid = new_ct_request_is_valid(
                         ct_management_session, sqs_body
