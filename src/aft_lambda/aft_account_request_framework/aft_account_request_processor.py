@@ -58,9 +58,12 @@ def lambda_handler(event: Dict[str, Any], context: LambdaContext) -> None:
             )
             if sqs_message is not None:
 
+                aft_metrics = AFTMetrics()
+
                 sqs_body = json.loads(sqs_message["Body"])
                 ct_request_is_valid = True
 
+                logger.info(f"Message Body {sqs_message}")
                 depends_on_accounts = json.loads(sqs_body["depends_on_accounts"])
                 if not account_request.all_required_accounts_are_provisioned(depends_on_accounts):
                     logger.info("Not all required accounts are provisioned")

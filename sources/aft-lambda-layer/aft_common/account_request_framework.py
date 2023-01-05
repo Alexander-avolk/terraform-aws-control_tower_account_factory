@@ -526,13 +526,15 @@ class AccountRequest:
         return False
 
     def all_required_accounts_are_provisioned(self, depends_on_accounts) -> bool:
+        logger.info(f"Checking if all required accounts were provisioned {depends_on_accounts}")
+
         if len(depends_on_accounts) == 0:
+            logger.info("No required accounts are needed")
             return True
 
         client: ServiceCatalogClient = self.ct_management_session.client(
             "servicecatalog"
         )
-        logger.info("Checking if all required accounts were provisioned")
 
         response = client.scan_provisioned_products(
             AccessLevelFilter={"Key": "Account", "Value": "self"},
