@@ -6,3 +6,5 @@ data "local_file" "version" {
 }
 
 data "aws_partition" "current" {}
+
+data "aws_partition" "current_test" {}
