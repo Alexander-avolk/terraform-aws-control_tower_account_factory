@@ -76,3 +76,15 @@ def send_sqs_message(
     logger.info(response)
 
     return response
+
+
+def resend_sqs_message(session: Session, message: MessageTypeDef) -> None:
+    delete_sqs_message(session, message)
+
+    queue_name = utils.get_ssm_parameter_value(
+        session, utils.SSM_PARAM_ACCOUNT_REQUEST_QUEUE
+    )
+    sqs_url = build_sqs_url(session=session, queue_name=queue_name)
+    sqs_body = json.loads(message["Body"])
+
+    send_sqs_message(session=session, sqs_url=sqs_url, message=sqs_body)

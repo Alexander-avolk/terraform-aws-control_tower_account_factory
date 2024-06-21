@@ -51,12 +51,11 @@ else:
     ProvisionedProductAttributeTypeDef = object
     ServiceCatalogClient = object
 
-
 logger = utils.get_logger()
 
 
 def get_healthy_ct_product_batch(
-    ct_management_session: Session,
+        ct_management_session: Session,
 ) -> Iterator[List[ProvisionedProductAttributeTypeDef]]:
     sc_product_search_filter: Mapping[Literal["SearchQuery"], Sequence[str]] = {
         "SearchQuery": [
@@ -110,7 +109,7 @@ def provisioned_product_exists(record: Dict[str, Any]) -> bool:
     ]["AccountEmail"]
 
     for batch in get_healthy_ct_product_batch(
-        ct_management_session=ct_management_session
+            ct_management_session=ct_management_session
     ):
         pp_ids = [product["Id"] for product in batch]
 
@@ -127,7 +126,7 @@ def provisioned_product_exists(record: Dict[str, Any]) -> bool:
 
 
 def email_exists_in_batch(
-    target_email: str, pps: List[str], ct_management_session: Session
+        target_email: str, pps: List[str], ct_management_session: Session
 ) -> bool:
     sc_client = ct_management_session.client("servicecatalog")
     for pp in pps:
@@ -141,7 +140,7 @@ def email_exists_in_batch(
 
 
 def insert_msg_into_acc_req_queue(
-    event_record: Dict[Any, Any], new_account: bool, session: Session
+        event_record: Dict[Any, Any], new_account: bool, session: Session
 ) -> None:
     sqs_queue = utils.get_ssm_parameter_value(
         session, utils.SSM_PARAM_ACCOUNT_REQUEST_QUEUE
@@ -179,17 +178,19 @@ def build_sqs_message(record: Dict[str, Any], new_account: bool) -> Dict[str, An
     new_image = ddb.unmarshal_ddb_item(record["dynamodb"]["NewImage"])
     message["operation"] = operation
     message["control_tower_parameters"] = new_image["control_tower_parameters"]
+    message["depends_on_accounts"] = new_image["depends_on_accounts"]
 
     if record["eventName"] == "MODIFY":
         old_image = ddb.unmarshal_ddb_item(record["dynamodb"]["OldImage"])
         message["old_control_tower_parameters"] = old_image["control_tower_parameters"]
+        message["depends_on_accounts"] = new_image["depends_on_accounts"]
 
     logger.info(message)
     return message
 
 
 def build_aft_account_provisioning_framework_event(
-    record: Dict[str, Any]
+        record: Dict[str, Any]
 ) -> Dict[str, Any]:
     account_request = ddb.unmarshal_ddb_item(record["dynamodb"]["NewImage"])
     aft_account_provisioning_framework_event = {
@@ -201,7 +202,7 @@ def build_aft_account_provisioning_framework_event(
 
 
 def put_audit_record(
-    session: Session, table: str, image: Dict[str, Any], event_name: str
+        session: Session, table: str, image: Dict[str, Any], event_name: str
 ) -> PutItemOutputTypeDef:
     dynamodb = session.client("dynamodb")
     item = image
@@ -216,7 +217,7 @@ def put_audit_record(
 
 
 def account_name_or_email_in_use(
-    ct_management_session: Session, account_name: str, account_email: str
+        ct_management_session: Session, account_name: str, account_email: str
 ) -> bool:
     orgs = ct_management_session.client("organizations")
     paginator = orgs.get_paginator("list_accounts")
@@ -246,7 +247,6 @@ def new_ct_request_is_valid(session: Session, request: Dict[str, Any]) -> bool:
 
 
 def modify_ct_request_is_valid(request: Dict[str, Any]) -> bool:
-
     old_ct_parameters = request.get("old_control_tower_parameters", {})
     new_ct_parameters = request["control_tower_parameters"]
 
@@ -273,7 +273,7 @@ def create_provisioned_product_name(account_name: str) -> str:
 
 
 def create_new_account(
-    session: Session, ct_management_session: Session, request: Dict[str, Any]
+        session: Session, ct_management_session: Session, request: Dict[str, Any]
 ) -> ProvisionProductOutputTypeDef:
     client = ct_management_session.client("servicecatalog")
     event_system = client.meta.events
@@ -309,7 +309,7 @@ def create_new_account(
 
 
 def update_existing_account(
-    session: Session, ct_management_session: Session, request: Dict[str, Any]
+        session: Session, ct_management_session: Session, request: Dict[str, Any]
 ) -> None:
     client = ct_management_session.client("servicecatalog")
     event_system = client.meta.events
@@ -325,7 +325,7 @@ def update_existing_account(
     control_tower_email_parameter = request["control_tower_parameters"]["AccountEmail"]
     target_product: Optional[ProvisionedProductAttributeTypeDef] = None
     for batch in get_healthy_ct_product_batch(
-        ct_management_session=ct_management_session
+            ct_management_session=ct_management_session
     ):
         for product in batch:
             product_outputs_response = client.get_provisioned_product_outputs(
@@ -339,8 +339,8 @@ def update_existing_account(
             ]
 
             if (
-                provisioned_product_email.lower()
-                == control_tower_email_parameter.lower()
+                    provisioned_product_email.lower()
+                    == control_tower_email_parameter.lower()
             ):
                 target_product = product
                 break
@@ -352,9 +352,9 @@ def update_existing_account(
 
     # check to see if the product still exists and is still active
     if utils.ct_provisioning_artifact_is_active(
-        session=session,
-        ct_management_session=ct_management_session,
-        artifact_id=target_product["ProvisioningArtifactId"],
+            session=session,
+            ct_management_session=ct_management_session,
+            artifact_id=target_product["ProvisioningArtifactId"],
     ):
         target_provisioning_artifact_id = target_product["ProvisioningArtifactId"]
     else:
@@ -379,7 +379,7 @@ def update_existing_account(
 
 
 def get_account_request_record(
-    aft_management_session: Session, table_id: str
+        aft_management_session: Session, table_id: str
 ) -> Dict[str, Any]:
     table_name = utils.get_ssm_parameter_value(
         aft_management_session, utils.SSM_PARAM_AFT_DDB_REQ_TABLE
@@ -400,12 +400,11 @@ def get_account_request_record(
 
 
 def build_account_customization_payload(
-    ct_management_session: Session,
-    account_id: str,
-    account_request: Dict[str, Any],
-    control_tower_event: Optional[Dict[str, Any]],
+        ct_management_session: Session,
+        account_id: str,
+        account_request: Dict[str, Any],
+        control_tower_event: Optional[Dict[str, Any]],
 ) -> AftInvokeAccountCustomizationPayload:
-
     orgs_agent = OrganizationsAgent(ct_management_session)
 
     # convert ddb strings into proper data type
@@ -460,8 +459,8 @@ class AccountRequest:
         for response in paginator.paginate():
             for portfolio in response["PortfolioDetails"]:
                 if (
-                    portfolio["DisplayName"]
-                    == AccountRequest.ACCOUNT_FACTORY_PORTFOLIO_NAME
+                        portfolio["DisplayName"]
+                        == AccountRequest.ACCOUNT_FACTORY_PORTFOLIO_NAME
                 ):
                     return portfolio["Id"]
 
@@ -491,7 +490,7 @@ class AccountRequest:
         client = self.ct_management_session.client("servicecatalog")
         paginator = client.get_paginator("list_principals_for_portfolio")
         for response in paginator.paginate(
-            PortfolioId=self.account_factory_portfolio_id
+                PortfolioId=self.account_factory_portfolio_id
         ):
             if self.service_role_arn in [
                 principal["PrincipalARN"] for principal in response["Principals"]
@@ -525,3 +524,40 @@ class AccountRequest:
 
         logger.info("No product provisioning in Progress")
         return False
+
+    def all_required_accounts_are_provisioned(self, depends_on_accounts) -> bool:
+        logger.info(f"Checking if all required accounts were provisioned {depends_on_accounts}")
+
+        if len(depends_on_accounts) == 0:
+            logger.info("No required accounts are needed")
+            return True
+
+        client: ServiceCatalogClient = self.ct_management_session.client(
+            "servicecatalog"
+        )
+
+        response = client.scan_provisioned_products(
+            AccessLevelFilter={"Key": "Account", "Value": "self"},
+        )
+
+        # collect all provisioned accounts
+        pps = response["ProvisionedProducts"]
+        while "NextPageToken" in response:
+            response = client.scan_provisioned_products(
+                AccessLevelFilter={"Key": "Account", "Value": "self"},
+                PageToken=response["NextPageToken"],
+            )
+            pps.extend(response["ProvisionedProducts"])
+
+        # collect names of all available accounts
+        def is_available(pp): return pp["Status"] == "AVAILABLE"
+        pp_names = list(map(lambda pp: pp["Name"], filter(is_available, pps)))
+
+        # define if all required accounts are in pp_names collection
+        result = all(elem in pp_names for elem in depends_on_accounts)
+
+        if not result:
+            logger.info("Not all required accounts are created")
+            return False
+
+        return True
